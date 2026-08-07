@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# python / venv
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# caches
+.cache/
+**/.cache/
+
+# root-level duplicate weights only (canonical copies live in charliekirk-model/ via Git LFS)
+/Charlie_Kirk_*.safetensors
+
+# runtime inputs / outputs
+**/foto.jpg
+**/kirkify_sonuc.png
+**/api_sonuc.png
+
+# editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
