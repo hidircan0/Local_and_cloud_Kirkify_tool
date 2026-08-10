@@ -1,13 +1,4 @@
-# Core
-torch>=2.0
-diffusers>=0.39
-transformers>=4.40
-accelerate>=0.30
-safetensors>=0.4
-pillow>=10.0
-huggingface_hub>=0.20
-
-# API path
-replicate>=1.0
-python-dotenv>=1.0
-requests>=2.31
+# Default: full local stack. Prefer:
+#   make cloud  -> requirements-cloud.txt
+#   make local  -> requirements-local.txt
+-r requirements-local.txt

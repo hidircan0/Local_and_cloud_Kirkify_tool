@@ -17,54 +17,56 @@ LoRA weights come from [huwhitememes/charliekirk_v1-2-qwen_image](https://huggin
 
 ```text
 kirkify/
-├── charliekirk-model/          # Hugging Face LoRA (v1 + v2 .safetensors)
+├── charliekirk-model/
+│   ├── charlie_kirk_v1_qwen_image.safetensors
+│   └── charlie_kirk_v2_qwen_image.safetensors   # used by make local
 ├── kirkifiers/
+│   ├── .env.example
 │   ├── .env                    # REPLICATE_API_TOKEN (gitignored)
-│   ├── kirkify_local/          # Local img2img pipeline
+│   ├── kirkify_local/
 │   │   └── kirkify_local.py
-│   └── kirkify_api/            # Replicate face-swap
+│   └── kirkify_api/
 │       ├── kirkify_api.py
-│       └── charlie_kirk.jpg    # Swap target face
+│       └── charlie_kirk.jpg
 ├── Makefile
-├── model.py                    # Experimental transformers load stub
-├── requirements.txt
-└── venv/
+├── requirements-cloud.txt      # lightweight (Replicate only)
+├── requirements-local.txt      # torch + diffusers (+ cloud)
+└── requirements.txt            # alias → local stack
 ```
 
-LoRA `.safetensors` weights under `charliekirk-model/` are tracked with **Git LFS**. After clone:
+Weights under `charliekirk-model/` are tracked with **Git LFS**:
 
 ```bash
 git lfs install
 git lfs pull
 ```
 
-Root-level duplicate weight files are gitignored.
-
 ---
 
 ## Requirements
 
-- Python 3.10+ (developed on 3.14)
-- Local path: enough RAM/VRAM; the script defaults to **CPU** and resizes to `512×512`
-- Cloud path: a [Replicate](https://replicate.com) account and API token
+- Python 3.10+
+- Local path: enough RAM/VRAM (`make local` auto-picks CUDA if available)
+- Cloud path: [Replicate](https://replicate.com) API token
 
-`make local` and `make cloud` run setup automatically when the venv is missing or `requirements.txt` changed. You can still run `make setup` alone if you want.
+`make local` / `make cloud` install deps automatically when needed.
 
 ```bash
-make setup   # optional; also implied by local/cloud
+make setup-cloud   # optional; cloud-only (small)
+make setup-local   # optional; full torch stack
+# or just:
+make cloud
+make local
 ```
 
 ---
 
 ## Environment
 
-`kirkifiers/.env`:
-
-```env
-REPLICATE_API_TOKEN=r8_...
+```bash
+cp kirkifiers/.env.example kirkifiers/.env
+# edit REPLICATE_API_TOKEN=
 ```
-
-`.env` is gitignored — do not commit the token.
 
 ---
 
@@ -77,39 +79,38 @@ REPLICATE_API_TOKEN=r8_...
 
 ```bash
 make local
+# GPU:
+DEVICE=cuda make local
+# extra flags:
+ARGS='--strength 0.7 --size 768' make local
 ```
 
 Output: `kirkifiers/kirkify_local/kirkify_sonuc.png`
 
-Default prompt:
+Useful CLI flags (`kirkify_local.py`):
 
-```text
-Ch4rlie K!rk face, photorealistic, meme realism, detailed
-```
-
-Key parameters in `kirkify_local.py`:
-
-- `strength=0.65` — how strongly the source photo is preserved
-- `guidance_scale=7.5`
-- `torch.float16` + `low_cpu_mem_usage=True`
-- device: `cpu` (use `pipe.to("cuda")` for GPU)
-
-> On CPU, Qwen-Image + LoRA can take a long time; leaving it in the background is normal.
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--image` | `foto.jpg` | Source photo |
+| `--lora` | `charlie_kirk_v2_...` | LoRA weights |
+| `--out` | `kirkify_sonuc.png` | Output path |
+| `--strength` | `0.65` | Img2img strength |
+| `--device` | `auto` | `auto` / `cpu` / `cuda` |
+| `--size` | `512` | Long-side resize |
 
 ### Cloud face-swap (`make cloud`)
 
-1. Put `REPLICATE_API_TOKEN` in `kirkifiers/.env`.
+1. Set `REPLICATE_API_TOKEN` in `kirkifiers/.env`.
 2. Put the source face at `kirkifiers/kirkify_api/foto.jpg`.
-3. Target face is already `charlie_kirk.jpg` (replace if you want).
+3. Target face defaults to `charlie_kirk.jpg`.
 4. Run:
 
 ```bash
 make cloud
+ARGS='--out result.png' make cloud
 ```
 
 Output: `kirkifiers/kirkify_api/api_sonuc.png`
-
-The script uses the latest `codeplugtech/face-swap` version, swaps `input_image` ↔ `swap_image`, and downloads the result.
 
 ---
 
@@ -118,21 +119,11 @@ The script uses the latest `codeplugtech/face-swap` version, swaps `input_image`
 | Field | Value |
 | --- | --- |
 | Base | `Qwen/Qwen-Image` |
-| Trainer | WaveSpeedAI LoRA Trainer |
-| Steps | ~2000 |
-| Rank | 16 |
+| Files | `charlie_kirk_v1_qwen_image.safetensors`, `charlie_kirk_v2_qwen_image.safetensors` |
 | Trigger | `Ch4rlie K!rk` |
 | License | Apache-2.0 (see model card) |
 
-The repo ships both **v1** and **v2** weights; the local script uses v2.
-
----
-
-## Notes
-
-- `model.py` tries to load `~/kirkify` with `AutoModelForCausalLM`; it is not part of the img2img/face-swap flow.
-- Cloud path needs network and Replicate quota; local path needs model download + disk/RAM.
-- Use outputs for personal/meme purposes; commercial or deceptive use may conflict with the model card’s fair-use notes.
+Local script defaults to **v2**.
 
 ---
 
@@ -140,11 +131,12 @@ The repo ships both **v1** and **v2** weights; the local script uses v2.
 
 | Symptom | Likely cause |
 | --- | --- |
-| `foto.jpg` missing | File not in the script’s directory |
+| `foto.jpg` missing | File not in the script directory |
 | `REPLICATE_API_TOKEN` error | Missing/empty `kirkifiers/.env` |
-| LoRA load error | Incomplete LFS checkout — run `git lfs pull` |
-| OOM / very slow | CPU + heavy model; 512×512 and `float16` are already set |
+| LoRA looks like LFS pointer | Run `git lfs pull` (file should be ~226 MB) |
+| OOM / very slow | Use `DEVICE=cuda` if you have a GPU; lower `--size` |
 
 ```bash
 git lfs install && git lfs pull
+ls -lh charliekirk-model/*.safetensors   # expect ~226M each
 ```

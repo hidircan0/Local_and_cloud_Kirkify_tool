@@ -1,66 +1,131 @@
+#!/usr/bin/env python3
+"""Local image-to-image kirkify using Qwen-Image + Charlie Kirk LoRA."""
+
+from __future__ import annotations
+
+import argparse
 import os
+import sys
+from pathlib import Path
+
 import torch
 from diffusers import AutoPipelineForImage2Image
 from PIL import Image
 
-# 1. Set Dynamic Directory Paths
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# Targeting the v2 safetensors file in the folder
-# Repo root is two levels up from kirkifiers/kirkify_local/
-lora_path = os.path.abspath(os.path.join(current_dir, "..", "..", "charliekirk-model", "Charlie_Kirk_🕊️_v2-Qwen_Image.safetensors"))
-image_path = os.path.join(current_dir, "foto.jpg") # Enter the name of the image you want to process here
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_LORA = REPO_ROOT / "charliekirk-model" / "charlie_kirk_v2_qwen_image.safetensors"
+DEFAULT_IMAGE = Path(__file__).resolve().parent / "foto.jpg"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "kirkify_sonuc.png"
+BASE_MODEL = "Qwen/Qwen-Image"
+DEFAULT_PROMPT = "Ch4rlie K!rk face, photorealistic, meme realism, detailed"
+DEFAULT_NEGATIVE = "bad quality, blurry, deformed, distorted face"
 
-print("Setting up the image generation pipeline on CPU...")
 
-# Pulling the base model specified in the README
-base_model = "Qwen/Qwen-Image"
+def pick_device(requested: str) -> str:
+    if requested != "auto":
+        return requested
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
 
-try:
-    # 1. Load the Base Model in Image-to-Image format
-    pipe = AutoPipelineForImage2Image.from_pretrained(
-        base_model,
-        torch_dtype=torch.float16,  # Compresses files to 16-bit in RAM while reading
-        low_cpu_mem_usage=True,     # Optimizes memory usage when loading the model into RAM
-        use_safetensors=True
+
+def pick_dtype(device: str) -> torch.dtype:
+    # float16 on CPU is often slow/unstable; keep fp32 there.
+    if device == "cuda":
+        return torch.float16
+    return torch.float32
+
+
+def assert_real_weight(path: Path) -> None:
+    if not path.is_file():
+        raise FileNotFoundError(f"LoRA not found: {path}")
+    # Git LFS pointer files are tiny text stubs (~100-200 bytes).
+    if path.stat().st_size < 1024:
+        raise RuntimeError(
+            f"LoRA looks like a Git LFS pointer, not real weights: {path}\n"
+            "Run: git lfs pull"
+        )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Local Kirkify (Qwen-Image + LoRA)")
+    parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE, help="Source photo")
+    parser.add_argument("--lora", type=Path, default=DEFAULT_LORA, help="LoRA .safetensors path")
+    parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT, help="Output PNG path")
+    parser.add_argument("--prompt", default=DEFAULT_PROMPT)
+    parser.add_argument("--negative-prompt", default=DEFAULT_NEGATIVE)
+    parser.add_argument("--strength", type=float, default=0.65)
+    parser.add_argument("--guidance-scale", type=float, default=7.5)
+    parser.add_argument("--size", type=int, default=512, help="Long-side resize target")
+    parser.add_argument(
+        "--device",
+        choices=("auto", "cpu", "cuda"),
+        default=os.getenv("DEVICE", "auto"),
     )
-    pipe.to("cpu")
+    return parser.parse_args()
 
-    # 2. Inject the LoRA Weights into the Model
-    print("Applying the LoRA weights...")
-    pipe.load_lora_weights(lora_path)
 
-except Exception as e:
-    print(f"An error occurred while loading the model: {e}")
-    exit()
+def resize_long_side(image: Image.Image, long_side: int) -> Image.Image:
+    w, h = image.size
+    scale = long_side / max(w, h)
+    if scale >= 1.0:
+        return image
+    new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
+    return image.resize(new_size, Image.Resampling.LANCZOS)
 
-# 3. Read and Prepare the Reference Photo
-if not os.path.exists(image_path):
-    print(f"Error: '{image_path}' not found.")
-    exit()
 
-init_image = Image.open(image_path).convert("RGB")
-# Resizing the image to 512x512 to prevent processing from taking hours on CPU
-init_image = init_image.resize((512, 512))
+def main() -> int:
+    args = parse_args()
+    device = pick_device(args.device)
+    dtype = pick_dtype(device)
 
-# 4. Run the Model (Inference)
-print("Model is redrawing based on the original photo...")
-print("Since you are on the CPU, this process may take quite a while. You can leave it running in the background.")
+    try:
+        assert_real_weight(args.lora)
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
-prompt = "Ch4rlie K!rk face, photorealistic, meme realism, detailed"
-negative_prompt = "bad quality, blurry, deformed, distorted face"
+    if not args.image.is_file():
+        print(f"Error: source image not found: {args.image}", file=sys.stderr)
+        return 1
 
-result = pipe(
-        prompt=prompt,
-        negative_prompt=negative_prompt,
+    print(f"Loading pipeline on {device} ({dtype})...")
+    try:
+        pipe = AutoPipelineForImage2Image.from_pretrained(
+            BASE_MODEL,
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True,
+            use_safetensors=True,
+        )
+        pipe.to(device)
+        print(f"Applying LoRA: {args.lora}")
+        pipe.load_lora_weights(str(args.lora))
+    except Exception as exc:
+        print(f"Error loading model: {exc}", file=sys.stderr)
+        return 1
+
+    init_image = Image.open(args.image).convert("RGB")
+    init_image = resize_long_side(init_image, args.size)
+
+    print("Running image-to-image...")
+    if device == "cpu":
+        print("CPU inference can take a long time; leave it running in the background.")
+
+    result = pipe(
+        prompt=args.prompt,
+        negative_prompt=args.negative_prompt,
         image=init_image,
-        strength=0.65, 
-        guidance_scale=7.5
-).images[0]
+        strength=args.strength,
+        guidance_scale=args.guidance_scale,
+    ).images[0]
 
-# 5. Save the Output
-output_path = os.path.join(current_dir, "kirkify_sonuc.png")
-result.save(output_path)
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    result.save(args.out)
+    print("=" * 40)
+    print(f"Done: {args.out}")
+    print("=" * 40)
+    return 0
 
-print("\n" + "="*40)
-print(f"PROCESS COMPLETE! New photo saved to: {output_path}")
-print("="*40)
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -17,7 +17,7 @@ build/
 .cache/
 **/.cache/
 
-# root-level duplicate weights only (canonical copies live in charliekirk-model/ via Git LFS)
+# legacy root duplicates (weights live in charliekirk-model/)
 /Charlie_Kirk_*.safetensors
 
 # runtime inputs / outputs
