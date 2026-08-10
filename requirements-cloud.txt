@@ -2,3 +2,5 @@
 replicate>=1.0
 python-dotenv>=1.0
 requests>=2.31
+opencv-python-headless>=4.8
+numpy>=1.26

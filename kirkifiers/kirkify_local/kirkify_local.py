@@ -14,8 +14,8 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LORA = REPO_ROOT / "charliekirk-model" / "charlie_kirk_v2_qwen_image.safetensors"
-DEFAULT_IMAGE = Path(__file__).resolve().parent / "foto.jpg"
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "kirkify_sonuc.png"
+DEFAULT_IMAGE = Path(__file__).resolve().parent / "giris.jpg"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / "cikis.png"
 BASE_MODEL = "Qwen/Qwen-Image"
 DEFAULT_PROMPT = "Ch4rlie K!rk face, photorealistic, meme realism, detailed"
 DEFAULT_NEGATIVE = "bad quality, blurry, deformed, distorted face"

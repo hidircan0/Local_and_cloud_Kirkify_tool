@@ -20,10 +20,12 @@ build/
 # legacy root duplicates (weights live in charliekirk-model/)
 /Charlie_Kirk_*.safetensors
 
-# runtime inputs / outputs
+# runtime I/O (keep charlie_kirk.jpg in repo as reference face)
+**/giris.jpg
+**/cikis.png
 **/foto.jpg
-**/kirkify_sonuc.png
 **/api_sonuc.png
+**/kirkify_sonuc.png
 
 # editor / OS
 .idea/
