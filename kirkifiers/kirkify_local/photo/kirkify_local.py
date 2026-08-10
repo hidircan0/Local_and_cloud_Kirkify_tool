@@ -12,7 +12,8 @@ import torch
 from diffusers import AutoPipelineForImage2Image
 from PIL import Image
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+# photo/ -> kirkify_local/ -> kirkifiers/ -> repo root
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_LORA = REPO_ROOT / "charliekirk-model" / "charlie_kirk_v2_qwen_image.safetensors"
 DEFAULT_IMAGE = Path(__file__).resolve().parent / "giris.jpg"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "cikis.png"

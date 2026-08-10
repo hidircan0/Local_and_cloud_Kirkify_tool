@@ -23,10 +23,12 @@ build/
 # runtime I/O (keep charlie_kirk.jpg in repo as reference face)
 **/giris.jpg
 **/cikis.png
+**/giris.mp4
+**/cikis.mp4
 **/foto.jpg
 **/api_sonuc.png
 **/kirkify_sonuc.png
-
+**/kirkify_vid_*/
 # editor / OS
 .idea/
 .vscode/
