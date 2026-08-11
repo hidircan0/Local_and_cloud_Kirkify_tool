@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cloud Kirkify for video — hybrid: frames (multi-face) or native Replicate video model."""
+"""Cloud Kirkify for video — default native Replicate model; optional per-frame swap."""
 
 from __future__ import annotations
 
@@ -50,9 +50,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT, help="Output mp4")
     parser.add_argument(
         "--engine",
-        choices=("frames", "native"),
-        default="frames",
-        help="frames = per-frame multi-face swap; native = prunaai/p-video-replace",
+        choices=("native", "frames"),
+        default="native",
+        help="native = prunaai/p-video-replace (default); frames = per-frame multi-face swap",
     )
     parser.add_argument("--stride", type=int, default=1, help="Process every Nth frame (frames engine)")
     parser.add_argument("--max-frames", type=int, default=0, help="Safety cap (0 = all)")

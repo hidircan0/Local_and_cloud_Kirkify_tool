@@ -6,7 +6,7 @@ Toolkit that turns a photo (or video) into a Charlie Kirk look.
 | --- | --- | --- |
 | **Local photo** | Qwen-Image + Charlie Kirk LoRA img2img | `make local` |
 | **Cloud photo** | Replicate multi-face swap | `make cloud` |
-| **Cloud video** | Hybrid: per-frame swap or native video model | `make cloud-video` |
+| **Cloud video** | Native Replicate video replace (`prunaai/p-video-replace`) | `make cloud-video` |
 | **Local video** | Stub (not implemented yet) | `make local-video` |
 
 LoRA weights: [huwhitememes/charliekirk_v1-2-qwen_image](https://huggingface.co/huwhitememes/charliekirk_v1-2-qwen_image). Trigger: `Ch4rlie K!rk`.
@@ -45,7 +45,7 @@ git lfs install && git lfs pull
 
 - Python 3.10+
 - Cloud: [Replicate](https://replicate.com) API token
-- Video: system `ffmpeg` (`sudo pacman -S ffmpeg`)
+- Video (only `--engine frames`): system `ffmpeg` (`sudo pacman -S ffmpeg`)
 - Local photo: enough RAM/VRAM
 
 ```bash
@@ -94,18 +94,16 @@ Under `kirkifiers/kirkify_api/video/`:
 | `cikis.mp4` | Result |
 
 ```bash
-# Default: per-frame multi-face (same engine as photo)
+# Default: native video model (whole clip in one Replicate call)
 make cloud-video
 
-# Draft faster/cheaper: every 3rd frame, first 30 frames
-ARGS='--stride 3 --max-frames 30' make cloud-video
+ARGS='--turbo --resolution 720p' make cloud-video
 
-# Native Replicate video model (faster wall-clock, different look)
-ARGS='--engine native' make cloud-video
-ARGS='--engine native --turbo --resolution 720p' make cloud-video
+# Optional: per-frame multi-face (same as photo; needs ffmpeg)
+ARGS='--engine frames --stride 3 --max-frames 30' make cloud-video
 ```
 
-**Cost note:** `--engine frames` calls Replicate once per processed face per frame. Prefer `--stride` / `--max-frames` while testing. `--engine native` is one prediction for the whole clip (`prunaai/p-video-replace`).
+**Cost note:** Default `native` is one prediction for the whole clip. `--engine frames` bills per face per frame — use `--stride` / `--max-frames` only if you need that path.
 
 **Local video** (`make local-video`) is a stub for now.
 
@@ -126,7 +124,7 @@ ARGS='--engine native --turbo --resolution 720p' make cloud-video
 | Symptom | Likely cause |
 | --- | --- |
 | `giris.jpg` / `giris.mp4` missing | Put input in the matching `photo/` or `video/` folder |
-| `ffmpeg` required | `sudo pacman -S ffmpeg` |
+| `ffmpeg` required | Only for `--engine frames`: `sudo pacman -S ffmpeg` |
 | empty face-swap / no faces | Overlapping detections (NMS should help); try `--no-all-faces` |
 | LoRA looks like LFS pointer | `git lfs pull` (~226 MB each) |
 | Rate limited | Wait / lower `--stride` load / top up Replicate credit |

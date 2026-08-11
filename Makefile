@@ -18,13 +18,13 @@ help:
 	@echo "  make setup-local   - local LoRA deps (includes cloud)"
 	@echo "  make local         - photo LoRA img2img"
 	@echo "  make cloud         - photo Replicate face-swap"
-	@echo "  make cloud-video   - video Replicate (frames|native)"
+	@echo "  make cloud-video   - video Replicate (native by default)"
 	@echo "  make local-video   - video local stub (not implemented yet)"
 	@echo ""
 	@echo "Photo cloud: $(API_PHOTO)/giris.jpg + charlie_kirk.jpg → cikis.png"
 	@echo "Video cloud: $(API_VIDEO)/giris.mp4 + charlie_kirk.jpg → cikis.mp4"
-	@echo "  ARGS='--engine native' make cloud-video"
-	@echo "  ARGS='--stride 3 --max-frames 30' make cloud-video"
+	@echo "  ARGS='--turbo --resolution 720p' make cloud-video"
+	@echo "  ARGS='--engine frames --stride 3' make cloud-video"
 	@echo "Optional: DEVICE=cuda make local"
 
 setup: setup-local
@@ -64,13 +64,12 @@ cloud: setup-cloud
 		(echo "Missing $(API_PHOTO)/charlie_kirk.jpg"; exit 1)
 	cd $(API_PHOTO) && $(PYTHON) kirkify_api.py $(ARGS)
 
-# Cloud video (default engine=frames)
+# Cloud video (default engine=native → prunaai/p-video-replace)
 cloud-video: setup-cloud
 	@test -f $(ROOT)/kirkifiers/.env || \
 		(echo "Missing kirkifiers/.env — copy from .env.example"; exit 1)
 	@test -f $(API_VIDEO)/giris.mp4 || \
 		(echo "Missing $(API_VIDEO)/giris.mp4"; exit 1)
-	@command -v ffmpeg >/dev/null || (echo "ffmpeg required: sudo pacman -S ffmpeg"; exit 1)
 	cd $(API_VIDEO) && $(PYTHON) kirkify_api_video.py $(ARGS)
 
 # Local video stub
